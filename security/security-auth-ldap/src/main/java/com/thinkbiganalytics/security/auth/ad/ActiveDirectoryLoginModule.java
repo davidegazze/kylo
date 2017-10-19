@@ -26,7 +26,6 @@ package com.thinkbiganalytics.security.auth.ad;
 import com.thinkbiganalytics.auth.jaas.AbstractLoginModule;
 import com.thinkbiganalytics.security.UsernamePrincipal;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -50,9 +49,9 @@ import javax.security.auth.login.AccountException;
 public class ActiveDirectoryLoginModule extends AbstractLoginModule {
 
     private static final Logger log = LoggerFactory.getLogger(ActiveDirectoryLoginModule.class);
-    
+
     public static final String AUTH_PROVIDER = "authProvider";
-    
+
     private ActiveDirectoryAuthenticationProvider authProvider;
 
 
@@ -74,7 +73,7 @@ public class ActiveDirectoryLoginModule extends AbstractLoginModule {
     protected boolean doLogin() throws Exception {
         final NameCallback nameCallback = new NameCallback("Username: ");
         final PasswordCallback passwordCallback = new PasswordCallback("Password: ", false);
-        
+
         if (this.authProvider.isUsingServiceCredentials()) {
             handle(nameCallback);
             passwordCallback.setPassword("".toCharArray());
@@ -101,7 +100,7 @@ public class ActiveDirectoryLoginModule extends AbstractLoginModule {
 
             log.debug("Found group for {}: {}", userPrincipal, groupName);
 
-            if (groupName != null && StringUtils.startsWith(groupName, "GG.Appl.TS_HADOOP_KYLO")) {
+            if (groupName != null) {
                 addNewGroupPrincipal(groupName);
             }
         }
