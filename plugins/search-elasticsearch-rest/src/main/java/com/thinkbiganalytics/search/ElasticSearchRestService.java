@@ -174,7 +174,7 @@ public class ElasticSearchRestService implements Search {
 
     private SearchResult transformRestResult(String query, int size, int start, ElasticSearchRestSearchResponse restSearchResponse) {
         ElasticSearchRestSearchResultTransform elasticSearchRestSearchResultTransform = new ElasticSearchRestSearchResultTransform();
-        return elasticSearchRestSearchResultTransform.transformRestResult(query, size, start, restSearchResponse);
+        return elasticSearchRestSearchResultTransform.transformRestResult(query, size, start, restSearchResponse, restClientConfig.getAdditionalSearchIndexes());
     }
 
     private void buildRestClient() {

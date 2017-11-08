@@ -56,7 +56,7 @@ public class ElasticSearchRestSearchResultTransform {
     private static final String RAW_DATA_KEY = "raw";
 
 
-    public SearchResult transformRestResult(String query, int size, int start, ElasticSearchRestSearchResponse restSearchResponse) {
+    public SearchResult transformRestResult(String query, int size, int start, ElasticSearchRestSearchResponse restSearchResponse, List<String> additionalDataIndexes) {
         final String KYLO_DATA = "kylo-data";
         final String KYLO_SCHEMA_METADATA = "kylo-schema-metadata";
         final String KYLO_FEEDS = "kylo-feeds";
@@ -65,7 +65,8 @@ public class ElasticSearchRestSearchResultTransform {
 
         List<SearchResultData> searchResultData = new ArrayList<>();
         for (ElasticSearchRestSearchHit elasticSearchRestSearchHit : restSearchResponse.getElasticSearchRestSearchHits()) {
-            if (elasticSearchRestSearchHit.getIndexName().equals(KYLO_DATA)) {
+            if (elasticSearchRestSearchHit.getIndexName().equals(KYLO_DATA) ||
+                (additionalDataIndexes != null && additionalDataIndexes.contains(elasticSearchRestSearchHit.getIndexName()))) {
                 searchResultData.add(getTableSearchResultData(elasticSearchRestSearchHit));
             } else if (elasticSearchRestSearchHit.getIndexName().equals(SearchIndex.DATASOURCES)) {
                 searchResultData.add(getSchemaSearchResultData(elasticSearchRestSearchHit));
