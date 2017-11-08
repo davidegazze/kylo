@@ -21,6 +21,7 @@ package com.thinkbiganalytics.search.config;
  */
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * Elasticsearch rest client configuration
@@ -29,6 +30,8 @@ public class ElasticSearchRestClientConfiguration implements Serializable {
 
     private String host;
     private Integer port;
+    private String esversion;
+    private List<String> additionalSearchIndexes;
 
     public String getHost() {
         return host;
@@ -44,5 +47,21 @@ public class ElasticSearchRestClientConfiguration implements Serializable {
 
     public void setPort(Integer port) {
         this.port = port;
+    }
+
+    public String getEsversion() {
+        return esversion;
+    }
+
+    public void setEsversion(String esversion) {
+        this.esversion = esversion;
+    }
+
+    public List<String> getAdditionalSearchIndexes() {
+        return additionalSearchIndexes;
+    }
+
+    public void setAdditionalSearchIndexes(List<String> additionalSearchIndexes) {
+        this.additionalSearchIndexes = additionalSearchIndexes;
     }
 }

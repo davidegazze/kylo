@@ -364,6 +364,10 @@ public class ElasticSearchRestService implements Search {
                 .put("kylo-data")
                 .put(SearchIndex.DATASOURCES);
 
+            if(restClientConfig.getAdditionalSearchIndexes() != null && !restClientConfig.getAdditionalSearchIndexes().isEmpty()) {
+                restClientConfig.getAdditionalSearchIndexes().forEach(indicesArray::put);
+            }
+
             JSONObject indicesBodyJsonObject = new JSONObject()
                 .put("indices", indicesArray)
                 .put("query", queryStringJsonObject)
