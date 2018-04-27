@@ -86,7 +86,7 @@ public class TableMergeSyncSupport implements Serializable {
      * Sets the list of configurations given in name=value string pairs
      */
     public void resetHiveConf() {
-            doExecuteSQL("reset");
+        doExecuteSQL("reset");
     }
 
 
@@ -104,6 +104,24 @@ public class TableMergeSyncSupport implements Serializable {
         return value;
     }
 
+    /**
+     * Create a new table like the old table with the new location.
+     *
+     * @param schema            the schema or database name for the reference table
+     * @param newTable          the name of the new table
+     * @param table             the name of the reference table
+     * @param syncTableLocation the HDFS location for the reference table
+     * @return the new table name
+     */
+    private String createTable(@Nonnull final String schema, @Nonnull final String newTable, @Nonnull final String table, @Nonnull final String syncTableLocation) throws SQLException {
+        final String createSQL = "create table " + HiveUtils.quoteIdentifier(schema, newTable) +
+                                 " like " + HiveUtils.quoteIdentifier(schema, table) +
+                                 " location " + HiveUtils.quoteString(syncTableLocation);
+        logger.info("New Create table " + createSQL);
+        logger.info("[KYLO-453] Create new table " + createSQL);
+        doExecuteSQL(createSQL);
+        return table;
+    }
 
     /**
      * Performs a sync replacing all data in the target table. A temporary table is created with the new data, old table dropped and the temporary table renamed to become the new table.  This causes a
@@ -116,8 +134,7 @@ public class TableMergeSyncSupport implements Serializable {
      * @param partitionSpec      the partition specification
      * @param feedPartitionValue the source processing partition value
      */
-    public void doSync(@Nonnull final String sourceSchema, @Nonnull final String sourceTable, @Nonnull final String targetSchema, @Nonnull final String targetTable,
-                       @Nonnull final PartitionSpec partitionSpec, @Nonnull final String feedPartitionValue) throws SQLException {
+    public void doSync(@Nonnull final String sourceSchema, @Nonnull final String sourceTable, @Nonnull final String targetSchema, @Nonnull final String targetTable, @Nonnull final PartitionSpec partitionSpec, @Nonnull final String feedPartitionValue) throws SQLException {
         // Validate input parameters
         Validate.notEmpty(sourceSchema);
         Validate.notEmpty(sourceTable);
@@ -125,19 +142,48 @@ public class TableMergeSyncSupport implements Serializable {
         Validate.notEmpty(targetTable);
         Validate.notNull(partitionSpec);
         Validate.notNull(feedPartitionValue);
+        // Due to the HIVE Bug a Renamed table is changed of location
+        // 1. Extract Location
+        String refTableLocation = extractTableLocation(targetSchema, targetTable);
+        logger.info("[KYLO-453] Target Table : " + targetTable);
+        logger.info("[KYLO-453] HDFS location : " + refTableLocation);
+        // 2. Rename the target table (It change the location)
+        String renamedTable = targetTable + "_" + System.currentTimeMillis();
+        renameTable(targetSchema, targetTable, renamedTable);
+        logger.info("[KYLO-453] New location Table : " + extractTableLocation(targetSchema, renamedTable));
+        // 3. Create the new table with the correct name
+        createTable(targetSchema, targetTable, renamedTable, refTableLocation);
+        // 4. Populate the new table
+        final String[] selectFields = getSelectFields(sourceSchema, sourceTable, targetSchema, targetTable, partitionSpec);
+        final String syncSQL = partitionSpec.isNonPartitioned()
+                               ? generateSyncNonPartitionQuery(selectFields, sourceSchema, sourceTable, targetSchema, targetTable, feedPartitionValue)
+                               : generateSyncDynamicPartitionQuery(selectFields, partitionSpec, sourceSchema, sourceTable, targetSchema, targetTable, feedPartitionValue);
+        logger.info("[KYLO-453] Final SQL : " + syncSQL);
+        doExecuteSQL(syncSQL);
+        // 5. Drop the sync table. Since it is a managed table it will drop the old data
+        // On the test the bug is not present
+        dropTable(targetSchema, renamedTable);
 
+        /*
         // Extract the existing HDFS location of data
         String refTableLocation = extractTableLocation(targetSchema, targetTable);
-
+        logger.info("Target Table : " + targetTable);
+        logger.info("HDFS location : " + refTableLocation);
         // 1. Create a temporary "sync" table for storing our latest snapshot
         String syncTableLocation = deriveSyncTableLocation(targetTable, refTableLocation);
+        logger.info("Sync location : " + syncTableLocation);
         String syncTable = createSyncTable(targetSchema, targetTable, syncTableLocation);
-
+        logger.info("Sync Table : " + syncTable);
+        logger.info("New location Table : " + extractTableLocation(targetSchema, syncTable));
         // 2. Populate the temporary "sync" table
         final String[] selectFields = getSelectFields(sourceSchema, sourceTable, targetSchema, syncTable, partitionSpec);
+        for(String field : selectFields) {
+            logger.info("Field  : " + field);
+        }
         final String syncSQL = partitionSpec.isNonPartitioned()
                                ? generateSyncNonPartitionQuery(selectFields, sourceSchema, sourceTable, targetSchema, syncTable, feedPartitionValue)
                                : generateSyncDynamicPartitionQuery(selectFields, partitionSpec, sourceSchema, sourceTable, targetSchema, syncTable, feedPartitionValue);
+        logger.info("Final SQL : " + syncSQL);
         doExecuteSQL(syncSQL);
 
         // 3. Drop the sync table. Since it is a managed table it will drop the old data
@@ -145,6 +191,7 @@ public class TableMergeSyncSupport implements Serializable {
 
         // 4. Rename the sync table
         renameTable(targetSchema, syncTable, targetTable);
+        */
     }
 
     /**
@@ -292,6 +339,7 @@ public class TableMergeSyncSupport implements Serializable {
         final String createSQL = "create table " + HiveUtils.quoteIdentifier(schema, syncTable) +
                                  " like " + HiveUtils.quoteIdentifier(schema, table) +
                                  " location " + HiveUtils.quoteString(syncTableLocation);
+        logger.info("New Create table " + createSQL);
         doExecuteSQL(createSQL);
         return syncTable;
     }

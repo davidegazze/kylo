@@ -36,13 +36,20 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+
+import jodd.util.ArraysUtil;
+import org.apache.commons.lang.StringUtils;
+
+import javax.annotation.Nonnull;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -131,10 +138,52 @@ public class TableMergeSyncSupportTest {
         doTestSync(targetSchema, targetTableNP, specNP);
     }
 
+    /**
+     * Extract the HDFS location of the table data.
+     *
+     * @param schema the schema or database name
+     * @param table  the table name
+     * @return the HDFS location of the table data
+     */
+    private String extractTableDirectory(@Nonnull String schema, @Nonnull String table) {
+        hiveShell.execute("use " + HiveUtils.quoteIdentifier(schema));
+        List<String> description = hiveShell.executeQuery("show table extended like " + HiveUtils.quoteIdentifier(table));
+        for(String line : description) {
+            if (line.startsWith("location:")) {
+                // Take table directory
+                return line.substring(9, line.lastIndexOf("/"));
+            }
+        }
+        return null;
+    }
+
+    @Test
+    /**
+     * Tests the sync function
+     */
+    public void checkSyncLocationHDFS() throws Exception {
+        // This the check id the schema pre and after a sync is the same
+        String describePre = extractTableDirectory(sourceSchema, sourceTable);
+
+        // Test without Partitions
+        mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTableNP, specNP, processingPartition);
+        String describePost = extractTableDirectory(targetSchema, targetTableNP);
+        if((describePre == null) || (describePost == null)) assert(false);
+        assert(describePre.equals(describePost));
+
+        // Test with Partitions
+        mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTable, spec, processingPartition);
+        describePost = extractTableDirectory(targetSchema, targetTable);
+        if((describePre == null) || (describePost == null)) assert(false);
+        assert(describePre.equals(describePost));
+    }
 
     private void doTestSync(String targetSchema, String targetTable, PartitionSpec spec) throws SQLException {
+        List<String> resultsOld = fetchEmployees(sourceSchema, sourceTable);
+        // Due to the fact that the first time the location is not changed, it is necessary to duplicate the first times
         mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTable, spec, processingPartition);
-        List<String> results = fetchEmployees(targetSchema, targetTable);
+        mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTable, spec, processingPartition);
+        List<String> results = fetchEmployeesWithoutProcessingDttm(targetSchema, targetTable);
         assertEquals(4, results.size());
 
         hiveShell.execute("insert into emp_sr.employee_valid partition(processing_dttm='20160119074340') (  `id`,  `timestamp`, `name`,`company`,`zip`,`phone`,`email`,  `hired`,`country`) values "
