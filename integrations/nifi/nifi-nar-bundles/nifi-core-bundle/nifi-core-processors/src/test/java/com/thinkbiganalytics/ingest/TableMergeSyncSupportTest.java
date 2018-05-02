@@ -182,7 +182,6 @@ public class TableMergeSyncSupportTest {
         List<String> resultsOld = fetchEmployees(sourceSchema, sourceTable);
         // Due to the fact that the first time the location is not changed, it is necessary to duplicate the first times
         mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTable, spec, processingPartition);
-        mergeSyncSupport.doSync(sourceSchema, sourceTable, targetSchema, targetTable, spec, processingPartition);
         List<String> results = fetchEmployeesWithoutProcessingDttm(targetSchema, targetTable);
         assertEquals(4, results.size());
 

@@ -142,29 +142,7 @@ public class TableMergeSyncSupport implements Serializable {
         Validate.notEmpty(targetTable);
         Validate.notNull(partitionSpec);
         Validate.notNull(feedPartitionValue);
-        // Due to the HIVE Bug a Renamed table is changed of location
-        // 1. Extract Location
-        String refTableLocation = extractTableLocation(targetSchema, targetTable);
-        logger.info("[KYLO-453] Target Table : " + targetTable);
-        logger.info("[KYLO-453] HDFS location : " + refTableLocation);
-        // 2. Rename the target table (It change the location)
-        String renamedTable = targetTable + "_" + System.currentTimeMillis();
-        renameTable(targetSchema, targetTable, renamedTable);
-        logger.info("[KYLO-453] New location Table : " + extractTableLocation(targetSchema, renamedTable));
-        // 3. Create the new table with the correct name
-        createTable(targetSchema, targetTable, renamedTable, refTableLocation);
-        // 4. Populate the new table
-        final String[] selectFields = getSelectFields(sourceSchema, sourceTable, targetSchema, targetTable, partitionSpec);
-        final String syncSQL = partitionSpec.isNonPartitioned()
-                               ? generateSyncNonPartitionQuery(selectFields, sourceSchema, sourceTable, targetSchema, targetTable, feedPartitionValue)
-                               : generateSyncDynamicPartitionQuery(selectFields, partitionSpec, sourceSchema, sourceTable, targetSchema, targetTable, feedPartitionValue);
-        logger.info("[KYLO-453] Final SQL : " + syncSQL);
-        doExecuteSQL(syncSQL);
-        // 5. Drop the sync table. Since it is a managed table it will drop the old data
-        // On the test the bug is not present
-        dropTable(targetSchema, renamedTable);
-
-        /*
+        // WAY 3
         // Extract the existing HDFS location of data
         String refTableLocation = extractTableLocation(targetSchema, targetTable);
         logger.info("Target Table : " + targetTable);
@@ -187,11 +165,22 @@ public class TableMergeSyncSupport implements Serializable {
         doExecuteSQL(syncSQL);
 
         // 3. Drop the sync table. Since it is a managed table it will drop the old data
+        logger.info("Drop Table : " + targetTable);
         dropTable(targetSchema, targetTable);
+        // 4. Make the table external
+        logger.info("Alter Table : " + syncTable);
+        String markExternal = "ALTER TABLE " + targetSchema + "." + syncTable + " SET TBLPROPERTIES('EXTERNAL'='TRUE')";
+        doExecuteSQL(markExternal);
 
-        // 4. Rename the sync table
+        // 5. Rename the sync table
+        logger.info("Raname Table : " + targetTable);
         renameTable(targetSchema, syncTable, targetTable);
-        */
+
+        // 6. Unmark the table external
+        logger.info("Alter Table : " + syncTable);
+        String unmarkExternal = "ALTER TABLE " + targetSchema + "." + targetTable + " SET TBLPROPERTIES('EXTERNAL'='FALSE')";
+        doExecuteSQL(unmarkExternal);
+
     }
 
     /**
