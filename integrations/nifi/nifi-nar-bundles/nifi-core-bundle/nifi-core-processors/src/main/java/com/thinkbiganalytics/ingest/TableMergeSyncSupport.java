@@ -140,7 +140,6 @@ public class TableMergeSyncSupport implements Serializable {
         Validate.notEmpty(targetTable);
         Validate.notNull(partitionSpec);
         Validate.notNull(feedPartitionValue);
-        // WAY 3
         // Extract the existing HDFS location of data
         String refTableLocation = extractTableLocation(targetSchema, targetTable);
         // 1. Create a temporary "sync" table for storing our latest snapshot
